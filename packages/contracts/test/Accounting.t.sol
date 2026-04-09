@@ -43,4 +43,40 @@ contract AccountingTest is BaseForkTest {
             "vault should hold MetaMorpho shares"
         );
     }
+
+    function testFuzz_convertToShares_roundtrip(uint256 assets) public view {
+        assets = bound(assets, 1, 1e18);
+        uint256 shares = vault.convertToShares(assets);
+        uint256 backAssets = vault.convertToAssets(shares);
+        assertLe(backAssets, assets, "roundtrip must not inflate");
+        assertGe(backAssets + 2, assets, "roundtrip rounding bounded by 2 wei");
+    }
+
+    function testFuzz_deposit_then_redeem_loses_at_most_dust(uint256 amount) public {
+        amount = bound(amount, 1e6, 1_000_000 * 1e6); // 1 USDC to 1M USDC
+        fundUsdc(alice, amount);
+
+        vm.startPrank(alice);
+        IERC20(USDC).approve(address(vault), amount);
+        uint256 shares = vault.deposit(amount, alice);
+        uint256 redeemed = vault.redeem(shares, alice, alice);
+        vm.stopPrank();
+
+        assertLe(redeemed, amount, "redeem must not exceed deposit");
+        assertGe(redeemed + 10, amount, "dust bound: <= 10 wei loss per round-trip");
+    }
+
+    function test_totalAssets_tracks_metamorpho() public {
+        uint256 amount = 10_000 * 1e6;
+        fundUsdc(alice, amount);
+
+        vm.startPrank(alice);
+        IERC20(USDC).approve(address(vault), amount);
+        vault.deposit(amount, alice);
+        vm.stopPrank();
+
+        uint256 reported = vault.totalAssets();
+        assertGe(reported, amount - 10, "totalAssets must approximately match deposit");
+        assertLe(reported, amount + 10, "totalAssets must not inflate");
+    }
 }
