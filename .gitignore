@@ -1,0 +1,13 @@
+node_modules
+.next
+out
+cache
+broadcast
+.env
+.env.local
+.DS_Store
+*.log
+packages/contracts/lib
+packages/shared/src/abi/*.json
+!packages/shared/src/abi/.gitkeep
+probe/

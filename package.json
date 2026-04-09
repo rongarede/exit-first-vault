@@ -1,0 +1,12 @@
+{
+  "name": "exit-first-vault",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "build:contracts": "pnpm --filter @exit-first/contracts build",
+    "test:contracts": "pnpm --filter @exit-first/contracts test",
+    "dev:frontend": "pnpm --filter @exit-first/frontend dev",
+    "sync-abi": "bash scripts/sync-abi.sh"
+  },
+  "packageManager": "pnpm@10.33.0"
+}
