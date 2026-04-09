@@ -89,7 +89,56 @@ contract ExitFirstVault is ERC4626, ReentrancyGuard {
     }
 
     // --- Differentiating entry: redeemAndBridge ---
-    // (Implemented in Task 5)
+
+    /// @notice Redeem vault shares and atomically bridge resulting USDC via
+    ///         LI.FI Diamond to an arbitrary chain/asset. Source-chain only;
+    ///         destination settlement is async.
+    /// @param  shares        Shares to burn.
+    /// @param  minAssetsOut  Minimum USDC expected from MetaMorpho redemption
+    ///                       (source-chain slippage guard).
+    /// @param  receiver      Event-only field for indexers; LI.FI's real
+    ///                       receiver is encoded inside `lifiCallData`. The
+    ///                       frontend is responsible for keeping the two
+    ///                       consistent.
+    /// @param  lifiCallData  Pre-constructed LI.FI Diamond calldata
+    ///                       (swapAndStartBridgeTokensVia* family). First 4
+    ///                       bytes must be a whitelisted selector.
+    function redeemAndBridge(
+        uint256 shares,
+        uint256 minAssetsOut,
+        address receiver,
+        bytes calldata lifiCallData
+    ) external nonReentrant {
+        // Checks
+        if (lifiCallData.length < 4) revert EmptyCallData();
+        bytes4 sel = bytes4(lifiCallData[:4]);
+        if (!_isAllowedSelector(sel)) revert DisallowedSelector(sel);
+
+        // Effects: burn shares, pull assets out of MetaMorpho
+        uint256 assetsExpected = previewRedeem(shares);
+        _burn(msg.sender, shares);
+
+        uint256 balanceBefore = IERC20(asset()).balanceOf(address(this));
+        METAMORPHO.withdraw(assetsExpected, address(this), address(this));
+        uint256 assetsOut = IERC20(asset()).balanceOf(address(this)) - balanceBefore;
+
+        if (assetsOut < minAssetsOut) revert InsufficientAssetsOut(assetsOut, minAssetsOut);
+
+        // Interactions: approve LI.FI Diamond and invoke the bridge facet
+        IERC20(asset()).forceApprove(LIFI_DIAMOND, assetsOut);
+        (bool ok, bytes memory ret) = LIFI_DIAMOND.call(lifiCallData);
+        if (!ok) revert LifiCallFailed(ret);
+
+        // Cleanup (defense-in-depth; Day 0 probe found Across leaves no
+        // residue, but other facets may differ). Cost: ~10k gas on happy path.
+        IERC20(asset()).forceApprove(LIFI_DIAMOND, 0);
+        uint256 dust = IERC20(asset()).balanceOf(address(this)) - balanceBefore;
+        if (dust > 0) {
+            IERC20(asset()).safeTransfer(msg.sender, dust);
+        }
+
+        emit RedeemAndBridge(msg.sender, receiver, shares, assetsOut, dust, sel);
+    }
 
     // --- Selector whitelist helpers ---
 
