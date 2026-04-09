@@ -10,14 +10,11 @@ contract RedeemAndBridgeTest is BaseForkTest {
 
     function setUp() public override {
         super.setUp();
-        bytes4[] memory selectors = new bytes4[](1);
-        // Dummy selector. Real selectors get wired in Task 8 from Day 0 probe.
-        selectors[0] = bytes4(0x12345678);
         vault = new ExitFirstVault(
             IERC20(USDC),
             METAMORPHO_VAULT,
             LIFI_DIAMOND,
-            selectors
+            allowedLifiSelectors()
         );
     }
 

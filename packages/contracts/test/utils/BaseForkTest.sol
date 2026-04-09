@@ -40,4 +40,44 @@ abstract contract BaseForkTest is Test {
     function fundUsdc(address to, uint256 amount) internal {
         deal(USDC, to, amount);
     }
+
+    /// @notice Returns the LI.FI Diamond bridge facet selectors that the
+    ///         vault pins in its whitelist.
+    ///
+    ///         Source: Day 0 probe enumerated all 258 Diamond selectors via
+    ///         `facets()` (see `probe/facets-raw.txt`), then selected three
+    ///         bridge facets covering the dominant Base → L1/L2 USDC routes:
+    ///
+    ///         - Across facet 0xAd3f1634a917924cBb54A0F76e43ca035D2B6BCd
+    ///           (observed live for Base → Arb/Op/Poly/BSC USDC)
+    ///         - StargateV2 facet 0x6e378C84e657C57b2a8d183CFf30ee5CC8989b61
+    ///           (observed live for Base → ETH USDC and WETH)
+    ///         - CCTP (CircleBridge) facet
+    ///           0x31a9b1835864706Af10103b31Ea2b79bdb995F5F (Circle-native
+    ///           canonical USDC bridging — included for future-proofing in
+    ///           case LI.FI starts routing here)
+    ///
+    ///         Admin / DiamondLoupe / Ownership selectors are deliberately
+    ///         excluded — they would be harmless (Diamond gates them by
+    ///         owner) but waste whitelist slots in the immutable vault.
+    function allowedLifiSelectors() internal pure returns (bytes4[] memory) {
+        bytes4[] memory s = new bytes4[](13);
+        // Across facet (4 selectors)
+        s[0]  = 0xe796cd98;
+        s[1]  = 0xf97136af;
+        s[2]  = 0xa1f1ce43;
+        s[3]  = 0x1794958f; // observed: Base→Arb/Op/Poly/BSC USDC
+        // StargateV2 facet (3 selectors)
+        s[4]  = 0x14d53077;
+        s[5]  = 0xa6010a66; // observed: Base→ETH USDC/WETH
+        s[6]  = 0xfb214c2f;
+        // CCTP (CircleBridge) facet (6 selectors)
+        s[7]  = 0x5fd9ae2e;
+        s[8]  = 0x2c57e884;
+        s[9]  = 0x736eac0b;
+        s[10] = 0x4666fc80;
+        s[11] = 0x733214a3;
+        s[12] = 0xaf7060fd;
+        return s;
+    }
 }
