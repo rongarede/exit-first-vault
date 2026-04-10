@@ -10,14 +10,7 @@ contract AccountingTest is BaseForkTest {
 
     function setUp() public override {
         super.setUp();
-        bytes4[] memory selectors = new bytes4[](1);
-        selectors[0] = bytes4(0xdeadbeef); // dummy; real selectors wired in Task 8
-        vault = new ExitFirstVault(
-            IERC20(USDC),
-            METAMORPHO_VAULT,
-            LIFI_DIAMOND,
-            selectors
-        );
+        vault = new ExitFirstVault(IERC20(USDC), METAMORPHO_VAULT);
     }
 
     function test_asset_is_usdc() public view {
@@ -25,7 +18,7 @@ contract AccountingTest is BaseForkTest {
     }
 
     function test_deposit_mints_shares_and_forwards_to_metamorpho() public {
-        uint256 amount = 1_000 * 1e6; // 1000 USDC
+        uint256 amount = 1_000 * 1e6;
         fundUsdc(alice, amount);
 
         vm.startPrank(alice);
@@ -36,7 +29,6 @@ contract AccountingTest is BaseForkTest {
         assertGt(shares, 0, "shares should be minted");
         assertEq(vault.balanceOf(alice), shares);
         assertEq(IERC20(USDC).balanceOf(address(vault)), 0, "vault should hold no USDC");
-        // MetaMorpho shares should be non-zero
         assertGt(
             IERC20(METAMORPHO_VAULT).balanceOf(address(vault)),
             0,
@@ -53,7 +45,7 @@ contract AccountingTest is BaseForkTest {
     }
 
     function testFuzz_deposit_then_redeem_loses_at_most_dust(uint256 amount) public {
-        amount = bound(amount, 1e6, 1_000_000 * 1e6); // 1 USDC to 1M USDC
+        amount = bound(amount, 1e6, 1_000_000 * 1e6);
         fundUsdc(alice, amount);
 
         vm.startPrank(alice);

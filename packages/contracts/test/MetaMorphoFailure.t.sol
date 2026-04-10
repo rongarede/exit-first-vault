@@ -5,24 +5,20 @@ import {BaseForkTest} from "./utils/BaseForkTest.sol";
 import {ExitFirstVault} from "../src/ExitFirstVault.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-/// @notice Tests how the vault behaves when MetaMorpho reverts or reports a
-///         different share price. Uses vm.mockCall to simulate failure
-///         modes without needing an actual Morpho market crash.
+/// @notice Tests vault behavior when MetaMorpho reverts or reports different
+///         share prices. Uses vm.mockCall to simulate failure modes.
 contract MetaMorphoFailureTest is BaseForkTest {
     ExitFirstVault internal vault;
 
     function setUp() public override {
         super.setUp();
-        bytes4[] memory s = new bytes4[](1);
-        s[0] = bytes4(0xdeadbeef);
-        vault = new ExitFirstVault(IERC20(USDC), METAMORPHO_VAULT, LIFI_DIAMOND, s);
+        vault = new ExitFirstVault(IERC20(USDC), METAMORPHO_VAULT);
     }
 
     function test_deposit_reverts_when_metamorpho_paused() public {
         uint256 amount = 1_000 * 1e6;
         fundUsdc(alice, amount);
 
-        // Simulate MetaMorpho deposit always reverting with "paused"
         vm.mockCallRevert(
             METAMORPHO_VAULT,
             abi.encodeWithSignature("deposit(uint256,address)", amount, address(vault)),
@@ -31,7 +27,7 @@ contract MetaMorphoFailureTest is BaseForkTest {
 
         vm.startPrank(alice);
         IERC20(USDC).approve(address(vault), amount);
-        vm.expectRevert(); // bubbles up from MetaMorpho
+        vm.expectRevert();
         vault.deposit(amount, alice);
         vm.stopPrank();
     }
@@ -47,7 +43,6 @@ contract MetaMorphoFailureTest is BaseForkTest {
 
         uint256 before = vault.totalAssets();
 
-        // Simulate MetaMorpho reporting 10% lower total assets
         uint256 currentShares = IERC20(METAMORPHO_VAULT).balanceOf(address(vault));
         vm.mockCall(
             METAMORPHO_VAULT,
